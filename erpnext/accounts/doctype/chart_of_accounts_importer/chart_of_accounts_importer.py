@@ -17,6 +17,10 @@ from frappe.utils.xlsxutils import (
 	read_xlsx_file_from_attached_file,
 )
 
+from erpnext.accounts.doctype.chart_of_accounts_importer.ods_reader import (
+	read_ods_file_from_attached_file,
+)
+
 from erpnext.accounts.doctype.account.chart_of_accounts.chart_of_accounts import (
 	build_tree_from_json,
 	create_charts,
@@ -103,10 +107,10 @@ def get_file(file_name):
 	extension = parts[1]
 	extension = extension.lstrip(".")
 
-	if extension not in ("csv", "xlsx", "xls"):
+	if extension not in ("csv", "xlsx", "xls", "ods", "fods"):
 		frappe.throw(
 			_(
-				"Only CSV and Excel files can be used to for importing data. Please check the file format you are trying to upload"
+				"Only CSV, Excel and OpenDocument (.ods) files can be used for importing data. Please check the file format you are trying to upload"
 			)
 		)
 
@@ -144,6 +148,8 @@ def generate_data_from_excel(file_doc, extension, as_dict=False):
 		rows = read_xlsx_file_from_attached_file(fcontent=content)
 	elif extension == "xls":
 		rows = read_xls_file_from_attached_file(content)
+	elif extension in ("ods", "fods"):
+		rows = read_ods_file_from_attached_file(fcontent=content)
 
 	data = []
 	headers = rows[0]
