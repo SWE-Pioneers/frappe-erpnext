@@ -1,0 +1,49 @@
+name: erpnext-test
+# Fully ephemeral validation stack for the custom apps (hrms + shariah_compliance).
+# tmpfs everywhere -> no named/anonymous data volumes, teardown is just `down`.
+services:
+  mariadb:
+    image: mariadb:11.8
+    container_name: erpnext-test-mariadb
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+    environment:
+      MYSQL_ROOT_PASSWORD: testpass123
+      MARIADB_ROOT_HOST: "%"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [testnet]
+
+  redis-cache:
+    image: redis:7-alpine
+    container_name: erpnext-test-redis-cache
+    networks: [testnet]
+
+  redis-queue:
+    image: redis:7-alpine
+    container_name: erpnext-test-redis-queue
+    networks: [testnet]
+
+  backend:
+    image: ${SMOKE_IMAGE:-erpnext-swe:v16.26.2-swe1}   # ci/frappe-smoke.sh overrides this per offering
+    container_name: erpnext-test-backend
+    entrypoint: ["bash", "-c"]
+    command: ["sleep infinity"]
+    tmpfs:
+      - /home/frappe/frappe-bench/sites
+      - /home/frappe/frappe-bench/logs
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks: [testnet]
+
+networks:
+  testnet:
