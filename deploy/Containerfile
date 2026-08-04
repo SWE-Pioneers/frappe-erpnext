@@ -1,0 +1,15 @@
+# SWE-Pioneers ERPNext + HRMS image - v16.
+# erpnext (OUR fork, version-16, CoA #56976 fixed) + its built assets come from the reusable
+# base erpnext-swe-base:v16.26.2 (see Dockerfile.base - built ONCE). Here we add only hrms, so
+# this never re-clones erpnext, re-runs its `yarn install`, or rebuilds its assets.
+# shariah_compliance is intentionally NOT baked here (separate image for stacks that need it).
+FROM erpnext-swe-base:v16.26.2
+
+USER frappe
+WORKDIR /home/frappe/frappe-bench
+
+# HRMS (SWE-Pioneers fork, version-16). get-app installs its node deps; build only hrms assets.
+RUN bench get-app --branch version-16 hrms https://github.com/SWE-Pioneers/frappe-hrms \
+    && bench build --app hrms \
+    && bench compile-po-to-mo --app hrms --force \
+    && rm -rf assets && cp -a sites/assets assets
