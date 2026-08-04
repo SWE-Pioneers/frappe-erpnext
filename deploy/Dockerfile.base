@@ -1,0 +1,33 @@
+# erpnext-swe-base:v16.26.2  —  BUILD THIS ONCE.
+# Reusable base = frappe (framework + toolchain from the public base) + erpnext from OUR
+# fork (SWE-Pioneers/frappe-erpnext version-16, CoA #56976 fixed), with assets fully
+# rebuilt. Every deployment image does `FROM erpnext-swe-base:v16.26.2` and adds ONLY its
+# own custom app(s) (techno / shariah / ...). No downstream image ever re-clones erpnext,
+# rebuilds erpnext assets, or hand-writes `yarn install` again.
+#
+# The bug that broke earlier: a fresh `git clone` of erpnext has NO node_modules, so
+# esbuild could not resolve erpnext's JS deps (onscan.js) and `bench build` failed. Fixed
+# HERE, once, by running `yarn install` for erpnext right after the clone.
+FROM frappe/erpnext:v16.26.2
+
+USER root
+RUN npm install -g yarn >/dev/null 2>&1 || true
+USER frappe
+WORKDIR /home/frappe/frappe-bench
+
+ARG ERPNEXT_REPO=https://github.com/SWE-Pioneers/frappe-erpnext
+ARG ERPNEXT_BRANCH=version-16
+RUN rm -rf apps/erpnext \
+    && git clone --depth 1 --branch "${ERPNEXT_BRANCH}" "${ERPNEXT_REPO}" apps/erpnext \
+    && env/bin/pip install --no-cache-dir -e apps/erpnext \
+    && cd apps/erpnext \
+    && (yarn install --frozen-lockfile || yarn install) \
+    && cd /home/frappe/frappe-bench
+
+# Rebuild assets (now that node_modules exists) + compile translations, then persist the
+# output past the sites/ VOLUME (same fix the demo images use).
+RUN bench build \
+    && bench compile-po-to-mo --app frappe --force \
+    && bench compile-po-to-mo --app erpnext --force \
+    && rm -rf /home/frappe/frappe-bench/assets \
+    && cp -a /home/frappe/frappe-bench/sites/assets /home/frappe/frappe-bench/assets
